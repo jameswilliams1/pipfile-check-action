@@ -41,7 +41,8 @@ def get_requirements(file_path: str, is_piplock: bool = False):
                     # Package installed from git
                     url = info["git"]
                     branch = info["ref"]
-                    package = name
+                    package = name  # TODO throws NameError if used directly?
+                    # TODO the egg may be incorrect here in certain cases
                     packages.append(f"git+{url}@{branch}#egg={package}")
                 # TODO check if other ways of installing packages are missed
         else:
