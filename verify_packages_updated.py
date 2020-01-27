@@ -5,6 +5,7 @@ Compare Pipfile.lock packages and versions against a requirements.txt.
 Raises AssertionError if packages and versions do not exactly match in both.
 """
 import json
+import re
 
 """
 Copyright 2020 James Williams
@@ -37,20 +38,29 @@ def get_requirements(file_path: str, is_piplock: bool = False):
                 try:
                     # Standard package==version
                     packages.append(name + info["version"])
+                    # TODO add markers
                 except KeyError:
                     # Package installed from git
                     url = info["git"]
                     branch = info["ref"]
-                    package = name  # TODO throws NameError if used directly?
+                    package = name  # TODO raises NameError if used directly?
                     # TODO the egg may be incorrect here in certain cases
+                    # TODO branch may be undefined
                     packages.append(f"git+{url}@{branch}#egg={package}")
                 # TODO check if other ways of installing packages are missed
         else:
-            ...
+            # Could possibly contain lines such as '-i https://pypi.org/simple'
+            all_lines = req_file.read().splitlines()
+            # Match anything that is either a normal or git installed package
+            is_package = re.compile(r"[A-Za-z0-9-]+==\d+|git\+[htps]+.+")
+            packages = [line for line in all_lines if is_package.match(line)]
+
         packages.sort()  # Sanity check, should already be sorted
         return packages
 
 
 if __name__ == "__main__":
-    print(get_requirements("Pipfile.lock", is_piplock=True))
-    # print(get_requirements("requirements.txt"))
+    lockfile = get_requirements("Pipfile.lock", is_piplock=True)
+    pip = get_requirements("requirements.txt")
+    print(list(set(lockfile) - set(pip)))
+    print(list(set(pip) - set(lockfile)))
