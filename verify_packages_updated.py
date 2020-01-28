@@ -31,28 +31,33 @@ def get_requirements(file_path: str, is_piplock: bool = False):
     """
     with open(file_path) as req_file:
         if is_piplock:
-            # Dict of {package: {version: xxx}}
+            # Dict of {package: {version: xxx ...}}
             package_info = json.loads(req_file.read())["default"]
             packages = []
             for name, info in package_info.items():
                 try:
-                    # Standard package==version
-                    packages.append(name + info["version"])
-                    # TODO add markers
+                    # Standard 'package[extras]==version ; markers'
+                    package = name
+                    if info.get("extras"):
+                        package += f"[{','.join(info['extras'])}]"
+                    package += info["version"]
+                    if info.get("markers"):
+                        package += f" ; {info['markers']}"
+                    packages.append(package)
                 except KeyError:
                     # Package installed from git
                     url = info["git"]
                     branch = info["ref"]
-                    package = name  # TODO raises NameError if used directly?
+                    egg = name  # TODO raises NameError if used directly?
                     # TODO the egg may be incorrect here in certain cases
                     # TODO branch may be undefined
-                    packages.append(f"git+{url}@{branch}#egg={package}")
+                    packages.append(f"git+{url}@{branch}#egg={egg}")
                 # TODO check if other ways of installing packages are missed
         else:
             # Could possibly contain lines such as '-i https://pypi.org/simple'
             all_lines = req_file.read().splitlines()
             # Match anything that is either a normal or git installed package
-            is_package = re.compile(r"[A-Za-z0-9-]+==\d+|git\+[htps]+.+")
+            is_package = re.compile(r"[A-Za-z0-9-\[\]]+==\d+|git\+[htps]+.+")
             packages = [line for line in all_lines if is_package.match(line)]
 
         packages.sort()  # Sanity check, should already be sorted
