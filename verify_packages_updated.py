@@ -6,6 +6,8 @@ Raises AssertionError if packages and versions do not exactly match in both.
 """
 import json
 import re
+from typing import List
+import sys
 
 """
 Copyright 2020 James Williams
@@ -24,7 +26,7 @@ limitations under the License.
 """
 
 
-def get_requirements(file_path: str, is_piplock: bool = False):
+def get_requirements(file_path: str, is_piplock: bool = False) -> List[str]:
     """Return a requirements.txt or Pipfile.lock as a list.
 
     Pipfile.lock files are parsed and returned in requirements.txt format.
@@ -60,12 +62,27 @@ def get_requirements(file_path: str, is_piplock: bool = False):
             is_package = re.compile(r"[A-Za-z0-9-\[\]]+==\d+|git\+[htps]+.+")
             packages = [line for line in all_lines if is_package.match(line)]
 
-        packages.sort()  # Sanity check, should already be sorted
         return packages
+
+
+def compare(reqs_1: List[str], reqs_2: List[str]):
+    """Compare 2 requirements.txt files (lists) and exit if they don't match.
+
+    Lines that don't match are printed to stderr.
+    """
+    diff_lock = "\n".join(list(set(reqs_1) - set(reqs_2)))
+    diff_pip = "\n".join(list(set(reqs_2) - set(reqs_1)))
+    if diff_lock or diff_pip:
+        err_msg = "Requirements files do not match.\n\n"
+        if diff_lock:
+            err_msg += f"Found in Pipfile.lock:\n{diff_lock}\n\n"
+        if diff_pip:
+            err_msg += f"Found in requirements.txt:\n{diff_pip}"
+        sys.stderr.write(err_msg)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
     lockfile = get_requirements("Pipfile.lock", is_piplock=True)
     pip = get_requirements("requirements.txt")
-    print(list(set(lockfile) - set(pip)))
-    print(list(set(pip) - set(lockfile)))
+    compare(lockfile, pip)
